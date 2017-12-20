@@ -173,7 +173,7 @@
                     }
                 }
                 spotifyBaseURL = "https://api.spotify.com/v1/";
-
+		//get spotify track ids
                 for(k=0; k<total; k++){
                     var id = -1;
                     trackName = names[k];
@@ -198,6 +198,7 @@
                         }
                     });
                }
+		//get trck features
               var features = new Array(total);
               var idString = "";
               var cap = 1;
@@ -240,6 +241,8 @@
 
                 idString = "";
               }
+
+		//make line graph 
 
               width = parseInt(times[0]) - parseInt(times[total-1]);
               heaight = 1;          
