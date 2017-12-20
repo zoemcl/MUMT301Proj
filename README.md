@@ -29,4 +29,4 @@ Now the app will be running on http://localhost:8888/
 IMPORTANT
 ---------
 
-Unfoutunatly, the project is not as optimal as I would like it to be and runs very slowly. Due to this, when entering date ranges, please keep them at less than a week and even less if you listen to a lot of music.
+The project is not as optimal as I would like it to be and runs very slowly. Due to this, when entering date ranges, please keep them at less than a week and even less if you listen to a lot of music.
