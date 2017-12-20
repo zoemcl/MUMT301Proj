@@ -1,0 +1,299 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Music Stats</title>
+    <style>
+      .line {
+        fill: none;
+        stroke: steelblue;
+        stroke-width: 2px;
+      }
+      html{
+        font-family: arial, sans-serif;
+        font-size: 18px;
+        text-align: center;
+        padding: 20px;
+        border: 20px solid #49AA25;
+      }
+
+      h1{
+        color: #49AA25;
+      }
+
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div id="login">
+        <h>Click here first ==> </h>
+        <a href="/login" class="btn btn-primary">Log in with Spotify</a>
+      </div>
+    </div>
+
+    <h1>Music Stats</h1>
+    <h2>Enter Lastfm user name: </h2>
+    <form id="info">
+        <input type="text" name="uName"><br>
+        <h3>Select feature: </h3>
+        <input  type="radio" name="dataType" value="danceability" checked>danceability<br>
+        <input  type="radio" name="dataType" value="energy">energy<br>
+        <input  type="radio" name="dataType" value="speechiness">speechiness<br>
+        <input  type="radio" name="dataType" value="acousticness">acousticness<br>
+        <input  type="radio" name="dataType" value="instrumentalness">instrumentalness<br>
+        <p>Start Date:</p><input type = "date" name= "startdate"><br>
+        <p>End Date:</p><input type = "date" name= "enddate"><br><br>
+        <input type="button" value="View Stats" onclick="queryData()">
+    </form>
+    <p id="alert"></p>
+    
+    <script src="//cdnjs.cloudflare.com/ajax/libs/handlebars.js/2.0.0-alpha.1/handlebars.min.js"></script>
+    <script src="http://code.jquery.com/jquery-1.10.1.min.js"></script>
+    <script src="https://d3js.org/d3.v4.min.js"></script>
+    <script>
+      function httpGet(theURL){
+                var xmlHttp = new XMLHttpRequest();
+                xmlHttp.open("GET", theURL, false);
+                xmlHttp.send();
+                return xmlHttp.responseXML;
+        }
+
+        function Error(error){
+            document.getElementById("alert").innerHTML = error;
+        }
+
+        function queryData(){
+          (function() {
+
+            /**
+             * Obtains parameters from the hash of the URL
+             * @return Object
+             */
+            function getHashParams() {
+              var hashParams = {};
+              var e, r = /([^&;=]+)=?([^&;]*)/g,
+                  q = window.location.hash.substring(1);
+              while ( e = r.exec(q)) {
+                hashParams[e[1]] = decodeURIComponent(e[2]);
+              }
+              return hashParams;
+            }
+
+            var params = getHashParams();
+
+            var access_token = params.access_token,
+                refresh_token = params.refresh_token,
+                error = params.error;
+
+            if (error) {
+              alert('There was an error during the authentication');
+            } else {
+              if (access_token) {
+                document.getElementById("alert").innerHTML = "";
+                // getting the data from the form
+                var info = document.getElementById("info");
+                username = info.elements["uName"].value;
+                data = info.elements["dataType"].value;
+                startdate = info.elements["startdate"].value;
+                enddate = info.elements["enddate"].value;
+
+                if(username == ""){
+                    Error("Enter user name");
+                    return;
+                }
+
+                currentdate = Math.round(new Date().getTime() / 1000);
+                startdate = Math.round(Date.parse(startdate) / 1000);
+                enddate = Math.round(Date.parse(enddate) / 1000);
+
+                if(isNaN(startdate) || isNaN(enddate) || enddate < startdate){
+                    document.getElementById("alert").innerHTML = "";
+                    Error("Please enter valid date");
+                    return;
+                }               
+                
+                //create lastfm call to retrieve users registration date
+                fmBaseUrl = "http://ws.audioscrobbler.com/2.0/";
+                fmResourse = "?method=user.getinfo";
+                fmUser = "&user=" + username;
+                fmApiKey = "&api_key=4b338ffb0f0bd5d3c4eb4dd1d7201e4a";
+                fmQueryURL = fmBaseUrl + fmResourse + fmUser + fmApiKey;
+
+                //create HTTP request
+                userInfo = httpGet(fmQueryURL);
+                regdate = parseInt(userInfo.getElementsByTagName("registered")[0].innerHTML);
+
+                if(startdate < regdate){
+                    Error("Start Date cannot be less than time of registration");
+                    return;
+                }
+
+                //create lastfm call to retrieve listening history
+                fmResourse = "?method=user.getrecenttracks"
+                fmTime = "&from=" + startdate + "&to=" + enddate
+                fmLimit = "&limit=200"
+                fmQueryURL = fmBaseUrl + fmResourse + fmUser + fmTime + fmLimit + fmApiKey;
+
+                //create http request
+                lhist = httpGet(fmQueryURL);
+                recenttrks_1 = lhist.getElementsByTagName("recenttracks")[0];
+                pages = parseInt(recenttrks_1.getAttribute("totalPages"));
+                total = parseInt(recenttrks_1.getAttribute("total"));
+
+                var rt = new Array(pages);
+                rt[0] = recenttrks_1;
+  
+                //get all tracks from all pages
+                if(pages>1){
+                    for(n=1; n<pages; n++){
+                        fmPage = "&page=" + (n + 1);
+                        fmQueryURL = fmBaseUrl + fmResourse + fmUser + fmTime + fmPage + fmLimit + fmApiKey;
+                        lh = httpGet(fmQueryURL);
+                        recenttrks_k = lh.getElementsByTagName("recenttracks")[0];
+                        rt[n] = recenttrks_k;
+                    }
+                }
+
+                //make arrays for track names, times and ids
+                var times = new Array(total);
+                var names = new Array(total);
+                var ids = new Array(total);
+                var i = 0;
+
+                for(j=0; j<pages; j++){
+                    tracks = rt[j].getElementsByTagName("track");
+                    for(k=0; k<tracks.length; k++){
+                        name = tracks[k].children[1].childNodes[0].data;
+                        fname = name.split(' ').join('+');
+                        names[i] = fname;
+
+                        date = tracks[k].children[10].attributes[0].value;
+                        times[i] = date;
+                    
+                        i++;
+                    }
+                }
+                spotifyBaseURL = "https://api.spotify.com/v1/";
+
+                for(k=0; k<total; k++){
+                    var id = -1;
+                    trackName = names[k];
+                    spotifySearch = spotifySearch = "search?query=" + trackName + "&type=track";
+                    spotQueryURL = spotifyBaseURL + spotifySearch;
+
+                    $.ajax({
+                        url: spotQueryURL,
+                        async: false,
+                        headers: {
+                          'Authorization': 'Bearer ' + access_token
+                        },
+                        success: function(response) {
+                          if(response.tracks.items[0] == null){
+                            id = ids[k-1];
+                          }
+                          else{
+                            id = response.tracks.items[0].id;
+                          }
+
+                          ids[k] = id;
+                        }
+                    });
+               }
+              var features = new Array(total);
+              var idString = "";
+              var cap = 1;
+              if(total > 100){
+                cap = Math.ceil(total/100);
+              }
+              
+              for(i=0; i<cap; i++){
+                for(j=0; j<100 && (j + (100 * i) < total); j++){
+                    if(j == 0){
+                      idString = ids[0];
+                    }
+                    else{
+                       idString = idString + "," + ids[j + (100 * i)];  
+                    }                                 
+                }
+
+                spotFeat = "audio-features/?ids=" + idString;
+                spotQueryURL = spotifyBaseURL + spotFeat;
+
+                $.ajax({
+                    url: spotQueryURL,
+                    async: false,
+                    headers: {
+                      'Authorization': 'Bearer ' + access_token
+                    },
+                    success: function(response) {
+                      audiofeats = response.audio_features;
+                      for(k=0; k<audiofeats.length; k++){
+                        if(audiofeats[k] == null){
+                          feat = "0.5";
+                        }
+                        else{
+                          feat = audiofeats[k][data];
+                        }
+                        features[k + (100 * i)] = feat;
+                      }
+                    }
+                });
+
+                idString = "";
+              }
+
+              width = parseInt(times[0]) - parseInt(times[total-1]);
+              heaight = 1;          
+
+              var dataSet = times.map(function(t, i){
+                return { 'time' : t - times[total -1], 'feat' : features[i]};
+              });
+
+              
+              var margin = {top: 20, right: 20, bottom: 30, left: 50},
+              width = 960 - margin.left - margin.right,
+              height = 500 - margin.top - margin.bottom;
+
+              var x = d3.scaleLinear().range([0, width]);
+              var y = d3.scaleLinear().range([height, 0]);
+
+              var valueline = d3.line()
+              .x(function(d) { return x(d.time); })
+              .y(function(d) { return y(d.feat); });
+
+              var svg = d3.select("body").append("svg")
+                  .attr("width", width + margin.left + margin.right)
+                  .attr("height", height + margin.top + margin.bottom)
+                .append("g")
+                  .attr("transform",
+                        "translate(" + margin.left + "," + margin.top + ")");
+
+              x.domain(d3.extent(dataSet, function(d) { return d.time; }));
+              y.domain([0, d3.max(dataSet, function(d) { return d.feat; })]);
+
+              svg.append("path")
+                  .data([dataSet])
+                  .attr("class", "line")
+                  .attr("d", valueline);
+              // Add the X Axis
+                svg.append("g")
+                    .attr("transform", "translate(0," + height + ")")
+                    .call(d3.axisBottom(x));
+              // Add the Y Axis
+                 svg.append("g")
+                    .call(d3.axisLeft(y));
+        
+              } else {
+                  // render initial screen
+                  $('#login').show();
+                  $('#loggedin').hide();
+              }
+            }
+          })();
+        }
+      
+    </script>
+    <img src=https://pbs.twimg.com/profile_images/805119801660239872/_FtLaP8j.jpg  height="30" width="30"></img>
+    <img src=http://www.radiosurvivor.com/wp-content/uploads/2014/03/lastfmlogo.png height="30" width="100"></img>
+  </body>
+</html>
+
