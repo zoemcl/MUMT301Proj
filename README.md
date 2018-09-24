@@ -6,7 +6,7 @@ Instructions
 
 Follow the below instructions to install Music Stats on your computer.
 
-After ou have downloaded or cloned the project, run these go to the project folder and install the dependencies:
+After you have downloaded or cloned the project, run these go to the project folder and install the dependencies:
 
 ```
 npm install
